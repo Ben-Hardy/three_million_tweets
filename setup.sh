@@ -3,6 +3,8 @@
 virtualenv venv -p python3
 source venv/bin/activate
 pip install pandas
+pip install pandasql
+pip install matplotlib
 pip install nltk
 pip install textblob
 python -m textblob.download_corpora

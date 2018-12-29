@@ -17,7 +17,8 @@ if not ('righttweets.csv' in os.listdir('./csv/') and 'lefttweets.csv' in os.lis
     # Read in the file names for the tweets. Change tweet_dir to where you have the tweets stored
     tweet_dir = './tweets/'
     files = sorted(os.listdir('./tweets'))
-    files.remove('README.md')
+    if 'README.md' in files:    
+        files.remove('README.md')
 
     total_tweet_count = 0
     lw_tweet_count = 0

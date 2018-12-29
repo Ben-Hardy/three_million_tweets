@@ -1,6 +1,9 @@
 import os
 import pandas as pd
 import numpy as np
+from multiprocessing import Process
+from time import sleep
+from time import time
 
 from textblob import TextBlob
 from textblob.sentiments import NaiveBayesAnalyzer
@@ -21,12 +24,12 @@ def remove_cruft(tweet):
     if (words[0]) == "RT":
         words = words[1:]
 
+
     if "https://" in words[-1] or "http://" in words[-1]:
         words = words[0:-1]
     
     #remove hashtags, handles, and punctuation
-    words = [w for w in words if not '#' in w]
-    words = [w for w in words if not '@' in w]
+    words = [w for w in words if not ('#' in w) or ('@' in w)]
     words = [w.strip(string.punctuation) for w in words]
     words = list(filter(None, words)) # get rid of empty strings that can result from previous removals
 
@@ -79,17 +82,38 @@ if good_to_go:
         lw_tweets.to_csv(csv_dir + "cleaned_lefttweets.csv", index=False)
         rw_tweets.to_csv(csv_dir + "cleaned_righttweets.csv", index=False)
 
+
+
     if not('analyzed_lefttweets.csv' in csv_files and 'analyzed_righttweets.csv' in csv_files):
-        lw_tweets_clean = pd.read_csv(csv_dir + "cleaned_lefttweets.csv")
-        rw_tweets_clean = pd.read_csv(csv_dir + "cleaned_righttweets.csv")
-
+        
         print("Running sentiment analysis on the tweets. Go and get some coffee or something because this is going to take a while")
-        subset = lw_tweets_clean['content'].values[:25]
-        lw_tweets_clean['sent_polarity'] = lw_tweets_clean.apply(lambda row: analyze_sentiment(row['content']), axis=1)
-        lw_tweets_clean.to_csv(csv_dir + "analyzed_lefttweets.csv")
 
-        rw_tweets_clean['sent_polarity'] = rw_tweets_clean.apply(lambda row: analyze_sentiment(row['content']), axis=1)
-        rw_tweets_clean.to_csv(csv_dir + "analyzed_righttweets.csv")
+        # running the two analyses on two different processors so it doesn't 5 minutes
+        def analyze_lw_thread():
+            print("Starting analysis of LW Tweets")
+            lw_tweets_clean = pd.read_csv(csv_dir + "cleaned_lefttweets.csv")
+            lw_tweets_clean['sent_polarity'] = lw_tweets_clean.apply(lambda row: analyze_sentiment(row['content']), axis=1)
+            lw_tweets_clean.to_csv(csv_dir + "analyzed_lefttweets.csv")
+            print("Done analyzing LW tweets")
+
+        def analyze_rw_thread():
+            print("Starting analysis of RW Tweets")
+            rw_tweets_clean = pd.read_csv(csv_dir + "cleaned_righttweets.csv")
+            rw_tweets_clean['sent_polarity'] = rw_tweets_clean.apply(lambda row: analyze_sentiment(row['content']), axis=1)
+            rw_tweets_clean.to_csv(csv_dir + "analyzed_righttweets.csv")
+            print("Done analyzing RW tweets")
+        
+        t = time()
+        p1 = Process(target=analyze_lw_thread)
+        p2 = Process(target=analyze_rw_thread)
+        p1.start()
+        p2.start()
+        p1.join()
+        p2.join()
+        while p1.is_alive() or p2.is_alive():
+            sleep(1)
+        print("process completed in {} seconds".format(time() - t))
+
 
     lw_tweets = pd.read_csv(csv_dir + "analyzed_lefttweets.csv")
     rw_tweets = pd.read_csv(csv_dir + "analyzed_righttweets.csv")
@@ -124,8 +148,16 @@ if good_to_go:
         if "hillary" in tweet.lower() or "clinton" in tweet.lower():
             hillary_tweets.append(tweet)
             hillary_polarity.append(polarity)
-    
-    rw_tweets.apply(lambda row: find_hillary(row['content'], row['sent_polarity']), axis=1)
+            return True
+        return False
+    rw_copy = rw_tweets
+    rw_to_remove = rw_copy.apply(lambda row: find_hillary(row['content'], row['sent_polarity']), axis=1)
+    to_remove = []
+    for i in range(len(rw_copy)):
+        if rw_to_remove[i]:
+            to_remove.append(i)
+    rw_copy.drop(to_remove, inplace=True)
+    #print(rw_copy)
 
     print('\nNumber of Hillary Clinton-related tweets: {}'.format(len(hillary_tweets)))
     print('Average Polarity for Hillary Clinton-related tweets: {}'.format(np.mean(hillary_polarity)))
@@ -172,8 +204,8 @@ if good_to_go:
             hillary_polarity_lw.append(polarity)
 
     lw_tweets.apply(lambda row: find_hillary2(row['content'], row['sent_polarity']), axis=1)
-    print('\nNumber of Hillary Clinton-related tweets: {}'.format(len(hillary_tweets_lw)))
-    print('Average Polarity for Hillary Clinton-related tweets: {}'.format(np.mean(hillary_polarity_lw)))
+    print('\nNumber of LW Hillary Clinton-related tweets: {}'.format(len(hillary_tweets_lw)))
+    print('Average Polarity for LW Hillary Clinton-related tweets: {}'.format(np.mean(hillary_polarity_lw)))
 
     h_random_tweet_selection = random.sample(range(len(hillary_polarity_lw)), len(hillary_polarity_lw))
     lw_random_tweet_selection = random.sample(range(len(lw_polarity)), len(hillary_polarity_lw))
