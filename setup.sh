@@ -13,12 +13,12 @@ pip install spacy
 pip install jupyter
 pip install emoji
 
-mkdir tweets
-mkdir csv
+# mkdir tweets
+#mkdir csv
 
-git clone https://github.com/fivethirtyeight/russian-troll-tweets.git
-cp ./russian-troll-tweets/* ./tweets/
-rm -rf ./russian-troll-tweets
-rm ./tweets/README.md
+#git clone https://github.com/fivethirtyeight/russian-troll-tweets.git
+#cp ./russian-troll-tweets/* ./tweets/
+#rm -rf ./russian-troll-tweets
+#rm ./tweets/README.md
 
 

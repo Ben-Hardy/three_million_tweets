@@ -90,18 +90,14 @@ if good_to_go:
 
         # running the two analyses on two different processors so it doesn't 5 minutes
         def analyze_lw_thread():
-            print("Starting analysis of LW Tweets")
             lw_tweets_clean = pd.read_csv(csv_dir + "cleaned_lefttweets.csv")
             lw_tweets_clean['sent_polarity'] = lw_tweets_clean.apply(lambda row: analyze_sentiment(row['content']), axis=1)
             lw_tweets_clean.to_csv(csv_dir + "analyzed_lefttweets.csv")
-            print("Done analyzing LW tweets")
 
         def analyze_rw_thread():
-            print("Starting analysis of RW Tweets")
             rw_tweets_clean = pd.read_csv(csv_dir + "cleaned_righttweets.csv")
             rw_tweets_clean['sent_polarity'] = rw_tweets_clean.apply(lambda row: analyze_sentiment(row['content']), axis=1)
             rw_tweets_clean.to_csv(csv_dir + "analyzed_righttweets.csv")
-            print("Done analyzing RW tweets")
         
         t = time()
         p1 = Process(target=analyze_lw_thread)
@@ -182,13 +178,22 @@ if good_to_go:
     hillary_sample_polarity = [hillary_polarity[i] for i in h_random_tweet_selection]
     donald_sample_polarity = [donald_polarity[i] for i in d_random_tweet_selection]
 
-    #print("Test for normality among the two random samples of Clinton and Trump-mentioning tweets")
-    #print(shapiro(lw_random_tweet_selection))
-    #print(shapiro(rw_random_tweet_selection))
-
     t, p = ttest_ind(hillary_sample_polarity, donald_sample_polarity, equal_var=False)
     print('\nTest to see if tweets mentioning Hillary Clinton are significantly different in terms of polarity than Donald Trump')
     print('t-value: {}\np-value: {}'.format(t, p))
+
+    p_list = []
+    for i in range(10000):
+            h_random_tweet_selection = random.sample(range(len(hillary_polarity)), 10000)
+            d_random_tweet_selection = random.sample(range(len(donald_polarity)), 10000)
+
+            hillary_sample_polarity = [hillary_polarity[i] for i in h_random_tweet_selection]
+            donald_sample_polarity = [donald_polarity[i] for i in d_random_tweet_selection]
+
+            t, p = ttest_ind(hillary_sample_polarity, donald_sample_polarity, equal_var=False)
+            p_list.append(p)
+
+    print("mean p-value over 10000 tests: {}", np.mean(p_list))
 
     t, p = ttest_ind(hillary_sample_polarity, rw_sample_polarity, equal_var=False)
     print('\nTest to see if tweets mentioning Hillary Clinton are significantly different in terms of polarity than random RW tweets')
@@ -212,10 +217,34 @@ if good_to_go:
 
     h_sample_polarity = [hillary_polarity[i] for i in h_random_tweet_selection]
     lw_sample_polarity = [lw_polarity[i] for i in lw_random_tweet_selection]
-    print(shapiro(h_sample_polarity))
-    print(shapiro(lw_sample_polarity))
+    #print(shapiro(h_sample_polarity))
+    #print(shapiro(lw_sample_polarity))
 
     t, p = ttest_ind(h_sample_polarity, lw_sample_polarity, equal_var=False)
 
     print('\nTest to see if tweets mentioning Hillary Clinton are significantly different in terms of polarity than random LW tweets')
     print('t-value: {}\np-value: {}'.format(t, p))
+
+    donald_tweets_lw = []
+    donald_polarity_lw = []
+
+    def find_donald2 (tweet, polarity):
+        if "donald" in tweet.lower() or "trump" in tweet.lower():
+            donald_tweets_lw.append(tweet)
+            donald_polarity_lw.append(polarity)
+
+    lw_tweets.apply(lambda row: find_donald2(row['content'], row['sent_polarity']), axis=1)
+    print('\nNumber of LW Donald Trump-related tweets: {}'.format(len(donald_tweets_lw)))
+    print('Average Polarity for LW Donald Trump-related tweets: {}'.format(np.mean(donald_polarity_lw)))
+
+    d_random_tweet_selection = random.sample(range(len(donald_polarity_lw)), 10000)
+    lw_random_tweet_selection = random.sample(range(len(lw_polarity)), 10000)
+
+    d_sample_polarity = [donald_polarity_lw[i] for i in d_random_tweet_selection]
+    lw_sample_polarity = [lw_polarity[i] for i in lw_random_tweet_selection]
+
+    print('\nTest to see if tweets mentioning Hillary Clinton are significantly different in terms of polarity than random LW tweets')
+    t, p = ttest_ind(d_sample_polarity, lw_sample_polarity, equal_var=False)    
+    print('t-value: {}\np-value: {}'.format(t, p))
+
+    print(donald_tweets_lw)
